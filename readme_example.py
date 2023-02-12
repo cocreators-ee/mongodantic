@@ -65,14 +65,28 @@ async def main():
 
     # Load up a specific one if you know the str representation of its id
     print("Searching by ID")
-    u2 = await User.get_by_id(user.id)
-    assert u2.name == "Another Test"
+    user_again = await User.get_by_id(user.id)
+    assert user_again.name == "Another Test"
 
     # Find many
     # {} is a Pymongo filter, if filtering by id make sure you use "_id" key and ObjectId() for value
     print("Finding all users")
     users = await User.find({})
     assert len(users) == 1
+
+    # Counting
+    for idx in range(0, 10):
+        u = User(name=f"user-{idx + 1}")
+        await u.save()
+
+    assert await User.count() == 11
+    assert await User.count({"name": user.name}) == 1
+
+    # Pagination
+    users = await User.find({"name": {"$ne": user.name}}, skip=3, limit=3)
+    assert len(users) == 3
+    for u in users:
+        print(u.name)
 
     # Load up the first matching entry
     print("Finding a user by name")

@@ -48,3 +48,24 @@ async def test_user_model():
     await u1.delete()
 
     assert len(await User.find({})) == 0
+
+
+async def test_pagination():
+    for u in range(0, 100):
+        user = User(
+            external_uuid=f"user-{u}",
+            first_name=f"First {u+1}",
+            last_name=f"Last {u+1}",
+            last_login=u,
+        )
+        await user.save()
+
+    assert await User.count() == 100
+    assert await User.count({"external_uuid": "user-4"}) == 1
+
+    users = await User.find({"last_login": {"$gte": 10}}, skip=10, limit=10)
+
+    idx = 20
+    for u in users:
+        assert u.external_uuid == f"user-{idx}"
+        idx += 1

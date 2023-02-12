@@ -113,14 +113,34 @@ class Model(pydantic.BaseModel, ABC):
         return res.deleted_count == 1
 
     @classmethod
-    async def find(cls, filter) -> List[TModel]:
+    async def find(
+        cls,
+        filter,
+        skip: Optional[int] = None,
+        limit: Optional[int] = None,
+    ) -> List[TModel]:
         models = []
         coll = await cls._get_collection()
-        async for doc in coll.find(filter):
+
+        cursor = coll.find(filter)
+        if skip:
+            cursor.skip(skip)
+        if limit:
+            cursor.limit(limit)
+
+        async for doc in cursor:
             id = str(doc["_id"])
             del doc["_id"]
             models.append(await cls.make(id=id, **doc))
         return models
+
+    @classmethod
+    async def count(cls, filter=None) -> int:
+        if not filter:
+            filter = {}
+
+        coll = await cls._get_collection()
+        return await coll.count_documents(filter)
 
     @classmethod
     async def find_one(cls, filter) -> TModel:
