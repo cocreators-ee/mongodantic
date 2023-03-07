@@ -80,8 +80,10 @@ class Model(pydantic.BaseModel, ABC):
             raise ModelNotFoundError()
 
         del doc["_id"]
-        for key in doc:
-            setattr(self, key, doc[key])
+        item = self.__class__(id=self.id, **doc)
+        for key in item.get_data():
+            setattr(self, key, getattr(item, key))
+
         await self.after_load()
 
     async def after_load(self) -> None:

@@ -1,5 +1,7 @@
 from typing import Optional, Sequence
 
+from pydantic import BaseModel
+
 from mongodantic import ASCENDING, IndexModel, Model
 
 
@@ -19,6 +21,19 @@ class User(Model):
     async def after_load(self):
         if not self.new_prop:
             self.new_prop = "new"
+
+
+class GuestbookEntry(BaseModel):
+    name: str
+
+
+class Guestbook(Model):
+    indexes: Sequence[IndexModel] = [
+        IndexModel([("date", ASCENDING)]),
+    ]
+
+    date: str
+    visitors: list[GuestbookEntry]
 
 
 async def test_user_model():
@@ -50,12 +65,23 @@ async def test_user_model():
     assert len(await User.find({})) == 0
 
 
+async def test_reload_transform():
+    # In the past sub-models were not properly transformed during a .reload()
+    gb = Guestbook(date="2020-01-02", visitors=[GuestbookEntry(name="Test dude")])
+
+    await gb.save()
+    await gb.reload()
+
+    assert gb.visitors[0].__class__ == GuestbookEntry
+    assert gb.visitors[0].name == "Test dude"
+
+
 async def test_pagination():
     for u in range(0, 100):
         user = User(
             external_uuid=f"user-{u}",
-            first_name=f"First {u+1}",
-            last_name=f"Last {u+1}",
+            first_name=f"First {u + 1}",
+            last_name=f"Last {u + 1}",
             last_login=u,
         )
         await user.save()
