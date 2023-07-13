@@ -1,3 +1,9 @@
+import warnings
+
+warnings.filterwarnings(
+    "ignore", message="pkg_resources is deprecated as an API"
+)  # fake_useragent
+
 import pytest
 from mongomock_motor import AsyncMongoMockClient
 

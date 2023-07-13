@@ -1,6 +1,8 @@
 from abc import ABC
+from datetime import datetime
 from typing import List, Optional, Sequence, Type, TypeVar
 
+import bson
 import motor.motor_asyncio
 import pydantic
 from bson import ObjectId
@@ -13,6 +15,24 @@ _INIT_MODELS = set()
 
 CODEC_OPTIONS = CodecOptions(tz_aware=True)
 TModel = TypeVar("TModel", bound="Model")
+
+BSON_TYPES = [
+    type(None),
+    bool,
+    int,
+    bson.int64.Int64,
+    float,
+    str,
+    list,
+    dict,
+    datetime,
+    bson.regex.Regex,
+    bson.binary.Binary,
+    bson.objectid.ObjectId,
+    bson.dbref.DBRef,
+    bson.code.Code,
+    bytes,
+]
 
 
 class ModelNotFoundError(Exception):
@@ -34,7 +54,7 @@ async def _init_db(model: Type[TModel], collection_name):
     if collection_name in _INIT_MODELS:
         return
 
-    indexes = model.__fields__["indexes"].default
+    indexes = model.model_fields["indexes"].default
 
     if _ENV == "unittest":
         # mongomock doesn't support codec_options
@@ -48,13 +68,11 @@ async def _init_db(model: Type[TModel], collection_name):
 
 
 class Model(pydantic.BaseModel, ABC):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
     # https://pymongo.readthedocs.io/en/4.1.1/api/pymongo/operations.html#pymongo.operations.IndexModel
     indexes: Sequence[IndexModel]
     id: Optional[str] = None
-
-    class Config:
-        # IndexModel validation is missing for pydantic so it requires this
-        arbitrary_types_allowed = True
 
     @classmethod
     def get_collection_name(cls) -> str:
@@ -67,9 +85,34 @@ class Model(pydantic.BaseModel, ABC):
         return instance
 
     def get_data(self) -> dict:
-        data = self.dict(by_alias=True)
+        data = self.model_dump(by_alias=True)
         del data["id"]
         del data["indexes"]
+
+        def _convert_map(map):
+            for key in map:
+                item = map[key]
+                t = type(item)
+                if t not in BSON_TYPES:
+                    map[key] = str(item)
+                elif t == list:
+                    map[key] = _convert_list(item)
+                elif t == dict:
+                    map[key] = _convert_map(item)
+            return map
+
+        def _convert_list(items):
+            for idx, item in enumerate(items):
+                t = type(item)
+                if t not in BSON_TYPES:
+                    items[idx] = str(item)
+                elif t == list:
+                    items[idx] = _convert_list(item)
+                elif t == dict:
+                    items[idx] = _convert_map(item)
+            return items
+
+        data = _convert_map(data)
 
         return data
 

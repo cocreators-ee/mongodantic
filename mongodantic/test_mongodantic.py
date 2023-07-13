@@ -16,7 +16,7 @@ class User(Model):
     first_name: str
     last_name: str
     last_login: int
-    new_prop: Optional[str]
+    new_prop: Optional[str] = None
 
     async def after_load(self):
         if not self.new_prop:
