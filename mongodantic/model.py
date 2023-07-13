@@ -50,7 +50,7 @@ async def _init_db(model: Type[TModel], collection_name):
 class Model(pydantic.BaseModel, ABC):
     # https://pymongo.readthedocs.io/en/4.1.1/api/pymongo/operations.html#pymongo.operations.IndexModel
     indexes: Sequence[IndexModel]
-    id: Optional[str]
+    id: Optional[str] = None
 
     class Config:
         # IndexModel validation is missing for pydantic so it requires this
