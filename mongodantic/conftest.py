@@ -1,3 +1,5 @@
+# ruff: noqa: E402 .. filterwarnings messes with import order
+
 import warnings
 
 warnings.filterwarnings(
