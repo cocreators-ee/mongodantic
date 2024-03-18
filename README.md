@@ -8,19 +8,20 @@
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mongodantic-python)](https://pypi.org/project/mongodantic-python/)
 [![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
-Python async database models for MongoDB using Pydantic base models. It should work on Python 3.9+, maybe 3.8, not quite
-sure.
+Python async database models for MongoDB using Pydantic base models. It should work on Python 3.9+, maybe 3.8,
+not quite sure.
 
 ## Motivation
 
-It's usually a good idea to have a simple layer on your DB that doesn't try to do too much, but takes care of the basic
-things like validating your data and mapping database records to class instances, and overall providing basic database
-access helpers. [Pydantic](https://docs.pydantic.dev) does a great job at the typing of models and validating data, and
-just needs a bit of database logic around it to provide all the capabilities commonly needed.
+It's usually a good idea to have a simple layer on your DB that doesn't try to do too much, but takes care of
+the basic things like validating your data and mapping database records to class instances, and overall
+providing basic database access helpers. [Pydantic](https://docs.pydantic.dev) does a great job at the typing
+of models and validating data, and just needs a bit of database logic around it to provide all the
+capabilities commonly needed.
 
-There are similar libraries already for other databases that serve as inspiration for this,
-e.g. [firedantic](http://github.com/ioxiocom/firedantic) for Firestore,
-and [arangodantic](https://github.com/ioxiocom/arangodantic) for ArangoDB.
+There are similar libraries already for other databases that serve as inspiration for this, e.g.
+[firedantic](http://github.com/ioxiocom/firedantic) for Firestore, and
+[arangodantic](https://github.com/ioxiocom/arangodantic) for ArangoDB.
 
 ## Installation
 
@@ -41,6 +42,7 @@ import asyncio
 from datetime import datetime
 from typing import Optional, Sequence
 
+import pymongo
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import Field
 
@@ -64,7 +66,7 @@ class User(Model):
 
   # Pydantic typing + Field usage works great
   created: datetime = Field(default_factory=datetime.now)
-  name: Optional[str]
+  name: Optional[str] = None
 
   # You can of course add methods
   def greet(self):
@@ -114,11 +116,13 @@ async def main():
   assert len(users) == 1
 
   # Counting
-  for idx in range(0, 10):
-    u = User(
-      name=f"user-{idx + 1}"
-    )
+  for idx in range(0, 9):
+    u = User(name=f"user-{idx + 1}")
     await u.save()
+
+  # Add a user that sorts to the end
+  u = User(name=f"zuser")
+  await u.save()
 
   assert await User.count() == 11
   assert await User.count({"name": user.name}) == 1
@@ -134,8 +138,18 @@ async def main():
   test_user = await User.find_one({"name": "Another Test"})
   assert test_user.id == user.id
 
-  print("Deleting user")
-  await user.delete()
+  # Sorting
+  print("Sorting")
+  users = await User.find({}, sort="name")
+  for u in users:
+    print(u.name)
+
+  last_by_name = await User.find_one({}, sort=[("name", pymongo.DESCENDING)])
+  print(last_by_name.name)
+
+  print("Deleting users")
+  for u in users:
+    await u.delete()
 
   try:
     print("Attempting reload")
@@ -153,15 +167,15 @@ if __name__ == "__main__":
 
 Issues and PRs are welcome!
 
-Please open an issue first to discuss the idea before sending a PR so that you know if it would be wanted or needs
-re-thinking or if you should just make a fork for yourself.
+Please open an issue first to discuss the idea before sending a PR so that you know if it would be wanted or
+needs re-thinking or if you should just make a fork for yourself.
 
 For local development, make sure you install [pre-commit](https://pre-commit.com/#install), then run:
 
 ```bash
 pre-commit install
 poetry install
-poetry run pytest-watch  # Hit Ctrl+C when done with your changes
+poetry run ptw .  # Hit Ctrl+C when done with your changes
 poetry run python readme_example.py
 ```
 
@@ -171,8 +185,8 @@ The code is released under the BSD 3-Clause license. Details in the [LICENSE.md]
 
 # Financial support
 
-This project has been made possible thanks to [Cocreators](https://cocreators.ee) and [Lietu](https://lietu.net). You
-can help us continue our open source work by supporting us
-on [Buy me a coffee](https://www.buymeacoffee.com/cocreators).
+This project has been made possible thanks to [Cocreators](https://cocreators.ee) and
+[Lietu](https://lietu.net). You can help us continue our open source work by supporting us on
+[Buy me a coffee](https://www.buymeacoffee.com/cocreators).
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/cocreators)

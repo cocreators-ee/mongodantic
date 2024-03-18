@@ -1,6 +1,6 @@
 from abc import ABC
 from datetime import datetime
-from typing import List, Optional, Sequence, Type, TypeVar
+from typing import Any, List, Mapping, Optional, Sequence, Tuple, Type, TypeVar, Union
 
 import bson
 import motor.motor_asyncio
@@ -15,6 +15,7 @@ _INIT_MODELS = set()
 
 CODEC_OPTIONS = CodecOptions(tz_aware=True)
 TModel = TypeVar("TModel", bound="Model")
+SortParam = Sequence[Union[str, Tuple[str, Union[int, str, Mapping[str, Any]]]]]
 
 BSON_TYPES = [
     type(None),
@@ -158,9 +159,18 @@ class Model(pydantic.BaseModel, ABC):
         return res.deleted_count == 1
 
     @classmethod
+    async def count(cls, filter=None) -> int:
+        if not filter:
+            filter = {}
+
+        coll = await cls._get_collection()
+        return await coll.count_documents(filter)
+
+    @classmethod
     async def find(
         cls,
         filter,
+        sort: Optional[SortParam] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> List[TModel]:
@@ -168,6 +178,8 @@ class Model(pydantic.BaseModel, ABC):
         coll = await cls._get_collection()
 
         cursor = coll.find(filter)
+        if sort:
+            cursor.sort(sort)
         if skip:
             cursor.skip(skip)
         if limit:
@@ -180,17 +192,9 @@ class Model(pydantic.BaseModel, ABC):
         return models
 
     @classmethod
-    async def count(cls, filter=None) -> int:
-        if not filter:
-            filter = {}
-
+    async def find_one(cls, filter, sort: Optional[SortParam] = None) -> TModel:
         coll = await cls._get_collection()
-        return await coll.count_documents(filter)
-
-    @classmethod
-    async def find_one(cls, filter) -> TModel:
-        coll = await cls._get_collection()
-        doc = await coll.find_one(filter)
+        doc = await coll.find_one(filter, sort=sort)
         if not doc:
             raise ModelNotFoundError()
 

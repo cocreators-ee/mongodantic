@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime
 from typing import Optional, Sequence
 
+import pymongo
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import Field
 
@@ -25,7 +26,7 @@ class User(Model):
 
     # Pydantic typing + Field usage works great
     created: datetime = Field(default_factory=datetime.now)
-    name: Optional[str]
+    name: Optional[str] = None
 
     # You can of course add methods
     def greet(self):
@@ -75,9 +76,13 @@ async def main():
     assert len(users) == 1
 
     # Counting
-    for idx in range(0, 10):
+    for idx in range(0, 9):
         u = User(name=f"user-{idx + 1}")
         await u.save()
+
+    # Add a user that sorts to the end
+    u = User(name="zuser")
+    await u.save()
 
     assert await User.count() == 11
     assert await User.count({"name": user.name}) == 1
@@ -93,8 +98,18 @@ async def main():
     test_user = await User.find_one({"name": "Another Test"})
     assert test_user.id == user.id
 
-    print("Deleting user")
-    await user.delete()
+    # Sorting
+    print("Sorting")
+    users = await User.find({}, sort="name")
+    for u in users:
+        print(u.name)
+
+    last_by_name = await User.find_one({}, sort=[("name", pymongo.DESCENDING)])
+    print(last_by_name.name)
+
+    print("Deleting users")
+    for u in users:
+        await u.delete()
 
     try:
         print("Attempting reload")
