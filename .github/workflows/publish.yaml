@@ -1,5 +1,3 @@
-# TODO: Make this extract the version number from the tag and update `pyproject.toml` with it
-
 name: Build and upload to PyPI
 
 on:
@@ -11,6 +9,10 @@ jobs:
   build_and_upload:
     name: Build and upload
     runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+      contents: write
     steps:
       - name: Checkout 🔁
         uses: actions/checkout@v3
@@ -18,7 +20,7 @@ jobs:
       - name: Set up Python 🐍
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Install Poetry and pre-commit 💈
         run: pip install poetry pre-commit
@@ -32,10 +34,25 @@ jobs:
       - name: Run tests 🌈
         run: poetry run pytest
 
-      - name: Publish package to PyPI 🙌
+      - name: Build package for PyPI 🙌
         run: |
-          set -e
-          poetry config http-basic.pypi "__token__" "${PYPI_TOKEN}"
-          poetry publish --build
+          TAG=$(git tag --points-at HEAD | head -n1)
+          sed -Ei 's/^version = "[^"]+"/version = "'${TAG}'"/' pyproject.toml
+          poetry build
+
+      - name: Publish to PyPi 🚀
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Update version 🔼
+        run: |
+          TAG=$(git tag --points-at HEAD | head -n1)
+          git config --global user.name "GitHub"
+          git config --global user.email "${BOT_EMAIL}"
+
+          git add pyproject.toml
+          git commit -m "Updated version to ${TAG}"
+
+          git push origin HEAD:main
         env:
-          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+          BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        if: success()
