@@ -1,4 +1,4 @@
-from typing import Optional, Sequence
+from typing import List, Optional, Sequence
 
 from pydantic import BaseModel
 
@@ -33,7 +33,7 @@ class Guestbook(Model):
     ]
 
     date: str
-    visitors: list[GuestbookEntry]
+    visitors: List[GuestbookEntry]
 
 
 async def test_user_model():
