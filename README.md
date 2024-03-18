@@ -121,7 +121,7 @@ async def main():
     await u.save()
 
   # Add a user that sorts to the end
-  u = User(name=f"zuser")
+  u = User(name="zuser")
   await u.save()
 
   assert await User.count() == 11
