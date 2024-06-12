@@ -16,6 +16,6 @@ from mongodantic.model import set_database
 async def mongo_database():
     client = AsyncMongoMockClient()
     db = client["unittests"]
-    set_database(db, "unittest")
+    set_database(db, True)
     yield db
     await db["User"].delete_many({})
