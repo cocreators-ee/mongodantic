@@ -10,7 +10,7 @@ from bson.codec_options import CodecOptions
 from pymongo import IndexModel
 
 _DB: motor.motor_asyncio.AsyncIOMotorDatabase
-_ENV: str = "unknown"
+_IS_MONGOMOCK: bool = False
 _INIT_MODELS = set()
 
 CODEC_OPTIONS = CodecOptions(tz_aware=True)
@@ -40,10 +40,21 @@ class ModelNotFoundError(Exception):
     pass
 
 
-def set_database(db: motor.motor_asyncio.AsyncIOMotorDatabase, env: str = "unknown"):
-    global _DB, _ENV
+def set_database(
+    db: motor.motor_asyncio.AsyncIOMotorDatabase,
+    is_mongomock: bool = False,
+) -> None:
+    global _DB, _IS_MONGOMOCK
     _DB = db
-    _ENV = env
+    _IS_MONGOMOCK = is_mongomock
+
+
+def _get_collection(name: str) -> motor.motor_asyncio.AsyncIOMotorCollection:
+    if _IS_MONGOMOCK:
+        # mongomock doesn't support codec_options
+        return _DB.get_collection(name)
+    else:
+        return _DB.get_collection(name, codec_options=CODEC_OPTIONS)
 
 
 async def _init_db(model: Type[TModel], collection_name):
@@ -57,11 +68,7 @@ async def _init_db(model: Type[TModel], collection_name):
 
     indexes = model.model_fields["indexes"].default
 
-    if _ENV == "unittest":
-        # mongomock doesn't support codec_options
-        collection = _DB.get_collection(collection_name)
-    else:
-        collection = _DB.get_collection(collection_name, codec_options=CODEC_OPTIONS)
+    collection = _get_collection(collection_name)
 
     await collection.create_indexes(indexes)
 
@@ -212,8 +219,4 @@ class Model(pydantic.BaseModel, ABC):
         name = cls.get_collection_name()
         await _init_db(cls, name)
 
-        if _ENV == "unittest":
-            # mongomock doesn't support codec_options
-            return _DB.get_collection(name)
-        else:
-            return _DB.get_collection(name, codec_options=CODEC_OPTIONS)
+        return _get_collection(name)
