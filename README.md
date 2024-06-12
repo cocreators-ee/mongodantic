@@ -62,7 +62,7 @@ class User(Model):
     ),
   ]
 
-  # id properly is automatically added - stored as _id in MongoDB
+  # id property is automatically added - stored as _id in MongoDB
 
   # Pydantic typing + Field usage works great
   created: datetime = Field(default_factory=datetime.now)
